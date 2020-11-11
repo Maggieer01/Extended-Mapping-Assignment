@@ -5,6 +5,7 @@ This assignment includes a document, a presentation using revealjs, and a Shinya
 
 *******************************************************************************************
 1.Necessary Data tables are too large to push on Github (cTable and PublicAssistanceFundedProjectsDetails)
+  I put them in the Google Drive: https://drive.google.com/drive/folders/1dJMWGI7LGiREahB4IJeUzxoEOGNWbhok?usp=sharing
 
 2.Shinyapp is able to run, but data is too large to publish on Shinyapps.io
 *******************************************************************************************
