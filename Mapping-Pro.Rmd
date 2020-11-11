@@ -1,0 +1,152 @@
+---
+title: "Mapping"
+author: "Maggie Sha"
+date: "2020/10/27"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(lubridate, warn.conflicts = FALSE)
+library(dplyr)
+library(magrittr)
+
+library(usmap)
+library(maps)
+```
+
+
+## Introduction
+This document works on the data from FEMA, and shows every step I have taken to acquire, clean, organize and map the data.
+
+## Data Source
+I am using a publically available dataset from FEMA.
+
+  * The data is from https://www.fema.gov/openfema-data-page/public-assistance-funded-projects-details-v1
+  * In this report, I only focus on Hurricane data from year 2009 to 2018.
+
+## Data Cleaning and Organization
+```{r cars}
+# import data and filter hurricane data from 2009 to 2018
+data <- read.csv("PublicAssistanceFundedProjectsDetails.csv",header=TRUE)
+data <- data %>% filter(incidentType == "Hurricane") 
+data$declarationDate <- ymd_hms(data$declarationDate)
+data <- data %>% filter(2009 <= year(data$declarationDate)) 
+data <- data %>% filter(year(data$declarationDate) <= 2018)
+
+#unique(data$state)
+ # state <- c("Alabama","Texas","Virgin Islands of the U.S.","North Carolina","Massachusetts","Puerto Rico",
+ #            "New York","Virginia","New Hampshire","Maryland","Delaware","West Virginia","Louisiana","Florida",
+ #            "New Jersey","Vermont","Connecticut","Pennsylvania","Rhode Island","Maine","District of Columbia",
+ #            "Mississippi","Ohio","Georgia","South Carolina","American Samoa","Hawaii")
+
+myState <- tolower(unique(data$state))
+county <- tolower(unique(data$county))
+
+MainStates <- map_data("state",myState)
+AllCounty <- map_data("county",myState)
+
+# length(unique(MainStates$region))
+# [1] 23
+
+# length(unique(AllCounty$subregion))
+# [1] 914
+```
+There are 23 unique States and 914 counties in my hurricane data.
+
+
+This is how the hurricane data looks like:
+```{r}
+head(data,n=10)
+```
+
+
+There are many attributes that I am not going to use or compare. 
+I will only keep several columns and do future data cleaning from here.
+
+```{r}
+# select columns I need 
+cTable <- data%>%select("declarationDate","county","countyCode","state","projectSize","projectAmount","federalShareObligated","totalObligated")
+
+# get a new table contains projectTotal
+sumProject <- cTable %>% group_by(countyCode) %>% dplyr::summarise(projectTotal = sum(projectAmount))
+
+# merge cTable and projectTotal
+cTable <- merge(sumProject,cTable,by = "countyCode")
+
+cTable %<>% dplyr::rename(region=state, subregion=county)
+cTable$region %<>% tolower()
+cTable$subregion %<>% tolower()
+
+# correct those counties' names which contain " (city)"
+cTable$subregion <- gsub("\\ \\(city\\)","",cTable$subregion)
+
+
+# join the table with Allcounty to match latitude and longitude
+# filter out miss-matched rows
+cTable <- left_join(cTable,AllCounty,by = "subregion")
+cTable %<>% filter(long != "NA")
+
+# find which counties have project amount greater than 100 million.
+cTable %<>% mutate(`projectAmount > 100000000` = ifelse(cTable$projectTotal > 100000000, "True", "False"))
+
+
+# length(unique(cTable$region.x))
+# [1] 22
+
+# length(unique(cTable$subregion))
+# [1] 525
+```
+
+Then I am done with the data cleaning and organization part.
+Now the cTable has 22 distinct States and 525 counties.
+This is how cTable looks like:
+```{r}
+head(cTable,n=10)
+write.csv(cTable,"D:\\MA615\\Mapping-pro\\cTable.csv", row.names = FALSE)
+```
+
+
+## Mapping
+
+First I want to see the distribution of project size (either "large" or "small")
+```{r}
+ggplot() +
+  geom_polygon(data=AllCounty, aes(x=long, y=lat, group=group),
+               color="gray", fill="white", size = .1 ) +
+  geom_polygon(data = cTable, aes(x = long, y = lat, group = group, 
+                                  fill = `projectSize`),
+                color = "grey", size = 0.2, alpha = 1.6) +
+  geom_polygon(data = MainStates, aes(x = long, y = lat, group = group),
+               color="black", fill="white", size = 0.2, alpha = 0.3) +
+  scale_fill_manual(values = c("gold", "blue"))+ 
+  ggtitle("Project Size") 
+
+```
+
+
+Then I map the project total amount grouped by county too see which exceed 100 million.
+```{r}
+  # use ggplot 
+  ggplot() +
+  geom_polygon(data=AllCounty, aes(x=long, y=lat, group=group),
+               color="gray", fill="white", size = .1 ) +
+  geom_polygon(data = cTable, aes(x = long, y = lat, group = group, 
+                                  fill = `projectAmount > 100000000`),
+                color = "grey", size = 0.2, alpha = 1.6) +
+  geom_polygon(data = MainStates, aes(x = long, y = lat, group = group),
+               color="black", fill="white", size = 0.2, alpha = 0.3) +
+  scale_fill_manual(values = c("darkblue", "red"))+ 
+  ggtitle("County Based TOtal Project Amount") +
+  
+  # Center the title
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+
+
+
+
+
