@@ -7,11 +7,11 @@ library(ggplot2)
 cTable <- read.csv("cTable.csv",header=TRUE)
 
 
-# Define UI for application that draws a histogram
+# Define UI for application that draws the maps
 ui <- navbarPage("My Map",
     tabPanel("Interactive Map",
   
-      # Sidebar with a slider input for number of bins 
+      # Sidebar with a slider input for States 
       sidebarLayout(
           sidebarPanel(
               selectInput("state",
@@ -19,7 +19,7 @@ ui <- navbarPage("My Map",
                           c(unique(df$region.y)))
           ),
         
-          # Show a plot of the generated distribution
+          # Show the maps
           mainPanel(
              plotOutput("map"),
              plotOutput("map2")
@@ -27,7 +27,7 @@ ui <- navbarPage("My Map",
       )
     ),
     tabPanel("Interactive Table",
-       # Sidebar with a slider input for number of bins 
+       # Sidebar with a slider input for States
        fluidRow(
          wellPanel(
            selectInput("state2",
@@ -35,7 +35,7 @@ ui <- navbarPage("My Map",
                        c(unique(df$region.x)))
          ),
          
-         # Show a plot of the generated distribution
+         # Show the resulting table
          
            tableOutput("table")
          )
@@ -43,9 +43,9 @@ ui <- navbarPage("My Map",
 )
 
 
-# Define server logic required to draw a histogram
+# Define server logic required to draw maps and tables
 server <- function(input, output) {
-  
+    # reactive original data, States data and county data
     dat = reactive({
       selected_state = input$state
       filtered <- cTable%>%filter(region.y == selected_state)
@@ -60,7 +60,7 @@ server <- function(input, output) {
     })
     
 
-  
+    # draw Project Size map
     output$map <- renderPlot({
       ggplot() +
         geom_polygon(data=county(), aes(x=long, y=lat, group=group),
@@ -74,6 +74,7 @@ server <- function(input, output) {
         ggtitle("Project Size") 
     })
     
+    # draw ProjectAmount > 100 million map
     output$map2 <- renderPlot({
     ggplot() +
       geom_polygon(data=county(), aes(x=long, y=lat, group=group),
@@ -89,11 +90,13 @@ server <- function(input, output) {
       theme(plot.title = element_text(hjust = 0.5))
     })
     
+    # reactive original data
     dat2 = reactive({
       selected_state = input$state2
       filtered <- cTable%>%filter(region.y == selected_state)
     })
     
+    # draw the resulting table
     output$table <- renderTable({
       head(dat2(),n=20)
     }
